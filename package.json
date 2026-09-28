@@ -1,0 +1,19 @@
+{
+  "name": "eco-adventures-of-veggie-boy",
+  "private": true,
+  "version": "0.2.0",
+  "description": "The Eco-Adventures of Veggie Boy: a 16-bit wildlife connectivity game set in Singacity.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js",
+    "balance": "node scripts/balance.mjs"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

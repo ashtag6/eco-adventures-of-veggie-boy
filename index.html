@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>The Eco-Adventures of Veggie Boy</title>
+    <meta name="description" content="A 16-bit wildlife conservation game. Help Veggie Boy reconnect Singacity's fragmented forests before Baron Tarmac paves them over." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1><span class="pre">The Eco-Adventures of</span> VEGGIE BOY</h1>
+        <p class="sub" id="chapter">Chapter 1: the Wudlands crossing, Singacity</p>
+      </header>
+
+      <section class="hud win" aria-label="Status">
+        <div class="stat"><span class="lbl">Year</span><span id="year" class="val">2026</span></div>
+        <div class="stat"><span class="lbl">Budget</span><span id="budget" class="val">$0k</span></div>
+        <div class="stat"><span class="lbl">Goodwill</span><span id="goodwill" class="val" aria-label="Goodwill"></span></div>
+        <div class="stat"><span class="lbl">Weather</span><span id="weather" class="val">Clear</span></div>
+        <div class="meter" id="m-pangolin"><span class="lbl">Pangolin connection</span><div class="meterrow"><div class="bar"><i></i><b title="Target"></b></div><span class="pct">0%</span></div></div>
+        <div class="meter" id="m-colugo"><span class="lbl">Colugo connection</span><div class="meterrow"><div class="bar"><i></i><b title="Target"></b></div><span class="pct">0%</span></div></div>
+        <div class="stat"><span class="lbl">Roadkill</span><span id="kills" class="val">0</span></div>
+      </section>
+
+      <main class="play">
+        <div class="stage">
+          <div class="screen win" id="screen">
+            <canvas id="map" width="384" height="224" aria-label="Map showing habitat, the expressway and wildlife trails"></canvas>
+          </div>
+          <p class="readout" id="readout">Hover over the map to inspect a tile.</p>
+          <div class="dialogue win" id="dialogue" aria-live="polite">
+            <canvas id="portrait" width="24" height="24" aria-hidden="true"></canvas>
+            <div>
+              <p class="who" id="who">VEGGIE BOY</p>
+              <p id="line"></p>
+              <div class="choices" id="choices"></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel win" aria-label="Controls">
+          <div>
+            <h2>View species</h2>
+            <div class="seg" id="species"></div>
+            <label class="toggle"><input type="checkbox" id="showCurrent" checked /> Show wildlife trails</label>
+          </div>
+          <div>
+            <h2>Build</h2>
+            <div class="tools" id="tools"></div>
+          </div>
+          <div class="row2"><button id="endYear" class="primary">End year</button><button id="sound" aria-pressed="false" title="Sound on or off">Sound: off</button></div>
+          <div>
+            <h2 id="resTitle">How hard to cross</h2>
+            <table id="restable"></table>
+          </div>
+        </aside>
+      </main>
+
+      <p class="notes">
+        <b>How to play.</b> Roads, buildings and open ground break Singacity's forests into islands. Animals that can't move between them can't find mates, food or new homes, and small isolated populations slowly disappear. Glowing trails show where each species is most likely to travel, and the brightest spots are bottlenecks where one bad development could cut them off. Build crossings, plant saplings to stitch habitat back together, and reach the connection target for every species. Weather matters too: haze grounds the seed-carrying birds, the monsoon floods underpasses, and thunderstorms flatten exposed planting.
+      </p>
+      <p class="notes small">
+        <b>For ecologists.</b> Behind the scenes each species' landscape is solved with circuit theory (McRae et al. 2008). Trails are current density between the two home habitats, the animals are random walkers following that current, and the connection meter is pre-expressway effective resistance divided by effective resistance now.
+      </p>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
