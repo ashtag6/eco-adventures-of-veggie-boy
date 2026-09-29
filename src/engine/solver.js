@@ -1,28 +1,45 @@
 import { W, H, N } from "./grid.js";
-import { T } from "./tiles.js";
+import { T, roadLike } from "./tiles.js";
 
-// Build the fixed-node mask: 1 = source core (V = 1), 2 = ground core (V = 0).
-export function makeFix(level) {
+/** All unordered pairs of home habitats: [[0,1]] for two, [[0,1],[0,2],[1,2]] for three. */
+export function corePairs(level) {
+  const out = [];
+  for (let a = 0; a < level.cores.length; a++) for (let b = a + 1; b < level.cores.length; b++) out.push([a, b]);
+  return out;
+}
+
+/** Cell lists for each home habitat. */
+export function coreCells(level) {
+  return level.cores.map((c) => {
+    const cells = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (c.test(x, y)) cells.push(y * W + x);
+    return cells;
+  });
+}
+
+/** Fixed-node mask for one pair: 1 = source (V = 1), 2 = ground (V = 0). Other habitats are ordinary cells. */
+export function makeFix(level, a = 0, b = 1) {
   const fix = new Int8Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      if (level.isA(x, y)) fix[i] = 1;
-      else if (level.isB(x, y)) fix[i] = 2;
+      if (level.cores[a].test(x, y)) fix[i] = 1;
+      else if (level.cores[b].test(x, y)) fix[i] = 2;
     }
   return fix;
 }
 
 /**
  * Circuit-theory solve on a 4-neighbour grid (Circuitscape-style average-resistance edges).
- * Source core held at 1 V, ground core at 0 V, Laplacian solved by Jacobi-preconditioned CG.
- * Returns voltages, per-cell current density, total current I and effective resistance R = 1/I.
+ * Source held at 1 V, ground at 0 V, Laplacian solved by Jacobi-preconditioned conjugate gradient.
+ * `mul` (optional) multiplies each cell's resistance, used for night lighting.
+ * Returns voltages, per-cell current, total current I and effective resistance R = 1/I.
  */
-export function solve(land, res, fix, V0 = null) {
+export function solve(land, res, fix, V0 = null, mul = null) {
   const r = new Float64Array(N);
   const gE = new Float64Array(N);
   const gS = new Float64Array(N);
-  for (let i = 0; i < N; i++) r[i] = res[land[i]];
+  for (let i = 0; i < N; i++) r[i] = res[land[i]] * (mul ? mul[i] : 1);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -33,8 +50,7 @@ export function solve(land, res, fix, V0 = null) {
   const V = new Float64Array(N);
   const D = new Float64Array(N);
   const b = new Float64Array(N);
-  for (let i = 0; i < N; i++)
-    V[i] = fix[i] === 1 ? 1 : fix[i] === 2 ? 0 : V0 ? V0[i] : 1 - (i % W) / (W - 1);
+  for (let i = 0; i < N; i++) V[i] = fix[i] === 1 ? 1 : fix[i] === 2 ? 0 : V0 ? V0[i] : 0.5;
 
   for (let i = 0; i < N; i++) {
     if (fix[i]) continue;
@@ -72,6 +88,7 @@ export function solve(land, res, fix, V0 = null) {
       bn += b[i] * b[i];
       rz += R[i] * Z[i];
     }
+  if (bn === 0) bn = 1e-30;
   for (let it = 0; it < 6000; it++) {
     Ax(P, Q);
     let pq = 0;
@@ -81,7 +98,7 @@ export function solve(land, res, fix, V0 = null) {
     let rr = 0;
     for (let i = 0; i < N; i++)
       if (!fix[i]) { V[i] += a * P[i]; R[i] -= a * Q[i]; rr += R[i] * R[i]; }
-    if (rr < 1e-22 * bn) break;
+    if (rr < 1e-18 * bn) break;
     let rz2 = 0;
     for (let i = 0; i < N; i++) if (!fix[i]) { Z[i] = R[i] / D[i]; rz2 += R[i] * Z[i]; }
     const beta = rz2 / rz;
@@ -90,7 +107,7 @@ export function solve(land, res, fix, V0 = null) {
   }
 
   const cur = new Float64Array(N);
-  let I = 0, max = 0;
+  let I = 0;
   for (let i = 0; i < N; i++) {
     const x = i % W;
     let s = 0;
@@ -99,7 +116,6 @@ export function solve(land, res, fix, V0 = null) {
     if (i + W < N) s += gS[i] * Math.abs(V[i] - V[i + W]);
     if (i - W >= 0) s += gS[i - W] * Math.abs(V[i] - V[i - W]);
     cur[i] = s / 2;
-    if (!fix[i] && cur[i] > max) max = cur[i];
     if (fix[i] === 1) {
       if (x < W - 1 && fix[i + 1] !== 1) I += gE[i] * (V[i] - V[i + 1]);
       if (x > 0 && fix[i - 1] !== 1) I += gE[i - 1] * (V[i] - V[i - 1]);
@@ -107,29 +123,53 @@ export function solve(land, res, fix, V0 = null) {
       if (i - W >= 0 && fix[i - W] !== 1) I += gS[i - W] * (V[i] - V[i - W]);
     }
   }
-  return { V, cur, I, R: 1 / I, max, gE, gS, fix };
+  return { V, cur, I, R: 1 / I, gE, gS, fix };
 }
 
-// Share of current crossing the road columns on bare tarmac rather than a crossing structure.
-export function bareFraction(land, cur, roadCols) {
+/**
+ * Solve every habitat pair for one species (Circuitscape pairwise mode).
+ * `cur` is cumulative current over all pairs; `I` is the summed pair current, so cur / I is a cell's
+ * share of all movement. `prev` warm-starts from the last solve.
+ */
+export function solvePairs(land, res, fixes, prev = null, mul = null) {
+  const pairs = fixes.map((fix, k) => solve(land, res, fix, prev ? prev.pairs[k].V : null, mul));
+  const cur = new Float64Array(N);
+  let I = 0;
+  for (const p of pairs) {
+    for (let i = 0; i < N; i++) cur[i] += p.cur[i];
+    I += p.I;
+  }
+  return { pairs, cur, I };
+}
+
+/** Share of current on road cells that crosses bare tarmac rather than a crossing structure. */
+export function bareFraction(land, cur) {
   let tot = 0, bare = 0;
-  for (const x of roadCols)
-    for (let y = 0; y < H; y++) {
-      const i = y * W + x;
-      tot += cur[i];
-      if (land[i] === T.ROAD) bare += cur[i];
-    }
+  for (let i = 0; i < N; i++) {
+    const t = land[i];
+    if (!roadLike(t)) continue;
+    tot += cur[i];
+    if (t === T.ROAD) bare += cur[i];
+  }
   return tot ? bare / tot : 0;
 }
 
-// Reference ("pre-expressway") effective resistance: every road cell restored to forest.
-export function referenceResistance(land, fix, speciesMap) {
+/** Default "before development" landscape: every road cell restored to forest. */
+export function defaultReference(land) {
   const L = new Uint8Array(land);
-  for (let i = 0; i < N; i++) if (L[i] === T.ROAD) L[i] = T.FOREST;
-  const out = {};
-  for (const [k, sp] of Object.entries(speciesMap)) out[k] = solve(L, sp.res, fix).R;
-  return out;
+  for (let i = 0; i < N; i++) if (roadLike(L[i])) L[i] = T.FOREST;
+  return L;
 }
 
-// Link % = R_reference / R_now, capped at 100.
-export const linkPercent = (Rref, Rnow) => Math.min(100, Math.round((100 * Rref) / Rnow));
+/**
+ * Connection % = sqrt(R_reference / R_now), capped at 100. The square root spreads the scale so each
+ * good action moves the meter visibly; the ranking of landscapes is the same as the raw ratio.
+ */
+export const linkPercent = (Rref, Rnow) => Math.min(100, Math.round(100 * Math.sqrt(Rref / Rnow)));
+
+/** Connection for a species = its weakest habitat pair. */
+export function connection(refPairs, solved) {
+  let min = 100;
+  solved.pairs.forEach((p, k) => { min = Math.min(min, linkPercent(refPairs[k], p.R)); });
+  return min;
+}

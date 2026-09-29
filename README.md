@@ -1,20 +1,22 @@
 # The Eco-Adventures of Veggie Boy
 
-A 16-bit browser game about keeping wildlife connected in a fast-growing city. Help Veggie Boy build crossings and plant forest to reconnect Singacity's habitats, while Baron Tarmac of Concrete Co. keeps pouring concrete and the weather does its worst.
+A 16-bit browser game about keeping wildlife connected in a fast-growing city. Veggie Boy, a botanist turned hero after a sting from a rare glowing nettle, has seen a future where Singacity's animals fade away. Across five chapters, from Wudlands in 2026 to Sentosaur Island in 2050, he builds crossings, plants forest and outwits Baron Tarmac of Concrete Co.
 
-## Run it
+**Play:** https://ashtag6.github.io/eco-adventures-of-veggie-boy/
+
+## Run it locally
 
 ```bash
 npm install
-npm run dev      # play locally at the URL Vite prints
-npm test         # model tests
-npm run balance  # connection % for scripted scenarios
+npm run dev      # play locally at the URL Vite prints (add #unlockall to open every chapter)
+npm test         # model tests, including "every chapter can be won, and doing nothing loses"
+npm run balance  # connection scores for each chapter
 npm run build    # static build in dist/
 ```
 
 ## Publish
 
-- **itch.io:** run `npm run build`, zip the contents of `dist/`, create a new HTML5 project on itch.io, upload the zip and tick "This file will be played in the browser". Set the viewport to 1100 x 900 or enable fullscreen.
-- **GitHub Pages / Netlify:** deploy the `dist/` folder. Paths are relative, so it works from any subfolder.
+- **GitHub Pages:** every push to `main` builds and deploys automatically.
+- **itch.io:** run `npm run build`, zip the contents of `dist/`, create an HTML5 project, upload the zip and tick "This file will be played in the browser".
 
 See `docs/GAME_DESIGN.md` for the design, and `CLAUDE.md` for conventions when working with Claude Code.

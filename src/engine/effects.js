@@ -3,45 +3,64 @@ import { T, roadLike } from "./tiles.js";
 
 /**
  * Card effects are plain data so levels stay declarative. Supported ops:
- *  { op: "develop", tile: "DEV" | "DEPOT" | "BUILD", rects: [[x, y, w, h], ...] }
- *  { op: "widen" }                       add one road lane to the east; crossings stretch
- *  { op: "budget", amount: n }           +/- budget ($k)
- *  { op: "goodwill", amount: n }         +/- goodwill
- *  { op: "tile", tile: "ECO", rects }    place tiles directly (e.g. a developer-funded crossing)
- * Returns true if the land changed (so the caller re-solves).
+ *  { op: "develop", tile: "DEV" | "DEPOT" | "BUILD" | "SEAWALL", rects: [[x, y, w, h], ...] }
+ *      Builds over everything except existing road and crossing tiles.
+ *  { op: "tile", tile: "ECO" | "UNDER" | "CANAL" | ..., rects }   place tiles directly (anything goes)
+ *  { op: "widen", road: 0 }    add one lane to road `road` (east for vertical roads, south for horizontal);
+ *                              existing crossings stretch across the new lane
+ *  { op: "light", rects }      floodlights: marks cells as lit at night (Manday)
+ *  { op: "budget", amount: n } +/- budget ($k)
+ *  { op: "goodwill", amount: n }
+ * Returns true if the land or lighting changed (so the caller re-solves).
  */
 export function applyEffects(state, effects = []) {
-  let landChanged = false;
+  let changed = false;
+  const each = (rects, fn) => {
+    for (const [x0, y0, w, h] of rects)
+      for (let y = y0; y < y0 + h; y++)
+        for (let x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < H) fn(y * W + x);
+  };
   for (const e of effects) {
     switch (e.op) {
       case "develop":
       case "tile": {
         const t = T[e.tile];
-        for (const [x0, y0, w, h] of e.rects)
-          for (let y = y0; y < y0 + h; y++)
-            for (let x = x0; x < x0 + w; x++) {
-              if (x < 0 || y < 0 || x >= W || y >= H) continue;
-              const i = y * W + x;
-              if (e.op === "develop" && roadLike(state.land[i])) continue;
-              state.land[i] = t;
-              state.grow[i] = 0;
-              state.age[i] = 0;
-            }
-        landChanged = true;
+        each(e.rects, (i) => {
+          if (e.op === "develop" && roadLike(state.land[i])) return;
+          state.land[i] = t;
+          state.grow[i] = 0;
+          state.age[i] = 0;
+        });
+        changed = true;
         break;
       }
       case "widen": {
-        const nx = state.roadCols[state.roadCols.length - 1] + 1;
-        for (let y = 0; y < H; y++) {
-          const i = y * W + nx;
-          const prev = state.land[i - 1];
-          state.land[i] = roadLike(prev) ? prev : T.ROAD;
-          state.grow[i] = 0;
+        const road = state.roads[e.road || 0];
+        const lines = road.lines;
+        const n = Math.max(...lines) + 1;
+        if (road.axis === "v") {
+          for (let y = 0; y < H; y++) {
+            const i = y * W + n, prev = state.land[i - 1];
+            if (!roadLike(prev)) continue;
+            state.land[i] = prev === T.ROAD ? T.ROAD : prev;
+            state.grow[i] = 0;
+          }
+        } else {
+          for (let x = 0; x < W; x++) {
+            const i = n * W + x, prev = state.land[i - W];
+            if (!roadLike(prev)) continue;
+            state.land[i] = prev;
+            state.grow[i] = 0;
+          }
         }
-        state.roadCols.push(nx);
-        landChanged = true;
+        lines.push(n);
+        changed = true;
         break;
       }
+      case "light":
+        each(e.rects, (i) => { state.extraLit[i] = 1; });
+        changed = true;
+        break;
       case "budget":
         state.budget += e.amount;
         break;
@@ -52,5 +71,5 @@ export function applyEffects(state, effects = []) {
         console.warn("Unknown effect op", e.op);
     }
   }
-  return landChanged;
+  return changed;
 }

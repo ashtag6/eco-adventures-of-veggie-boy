@@ -1,14 +1,23 @@
 import { drawPortrait } from "../render/sprites.js";
 import { play } from "../audio.js";
 
-/** Typewriter dialogue box with portrait and choice buttons. Click the box to skip typing. */
+const NAMES = { baron: "BARON TARMAC", veggie: "VEGGIE BOY", narrator: "" };
+
+/**
+ * Typewriter dialogue box with portrait and choice buttons. Click the box to skip typing.
+ * Speakers: "veggie", "baron", or "narrator" (no portrait).
+ */
 export function createDialogue({ box, portrait, who, line, choices }, reduced) {
   let timer = null;
   return {
     say(speaker, text, buttons = []) {
-      drawPortrait(portrait, speaker);
-      who.textContent = speaker === "baron" ? "BARON TARMAC" : "VEGGIE BOY";
+      const narr = speaker === "narrator";
+      portrait.hidden = narr;
+      box.classList.toggle("narr", narr);
+      if (!narr) drawPortrait(portrait, speaker);
+      who.textContent = NAMES[speaker] ?? "";
       who.className = "who" + (speaker === "baron" ? " baron" : "");
+      who.hidden = narr;
       choices.innerHTML = "";
       clearInterval(timer);
       let n = 0;

@@ -26,6 +26,10 @@ export function setSound(on) {
   try { localStorage.setItem("vb-sound", on ? "1" : "0"); } catch (_) { /* storage may be blocked */ }
 }
 export const soundOn = () => enabled;
+/** Create the audio context from a user gesture (Press start) without turning sound on. */
+export function unlockAudio() {
+  try { init(); ctx?.resume?.(); } catch (_) { /* no audio available */ }
+}
 export function savedSoundPref() {
   try { return localStorage.getItem("vb-sound") === "1"; } catch (_) { return false; }
 }
